@@ -15,10 +15,11 @@ import (
 )
 
 type HLFService struct {
-	log        *logrus.Entry
-	cfg        config.HLF
-	wallet     sync.Map
-	contractGW sync.Map
+	log            *logrus.Entry
+	cfg            config.HLF
+	wallet         sync.Map
+	contractGW     sync.Map
+	endorsingPeers sync.Map
 }
 
 func NewHLFService(lc fx.Lifecycle,
@@ -26,10 +27,11 @@ func NewHLFService(lc fx.Lifecycle,
 	log *logrus.Entry,
 ) *HLFService {
 	srv := &HLFService{
-		log:        log,
-		cfg:        cfg.HLF,
-		wallet:     sync.Map{},
-		contractGW: sync.Map{},
+		log:            log,
+		cfg:            cfg.HLF,
+		wallet:         sync.Map{},
+		contractGW:     sync.Map{},
+		endorsingPeers: sync.Map{},
 	}
 
 	lc.Append(fx.Hook{
@@ -81,10 +83,26 @@ func (svc *HLFService) initWallet(userName, mspId, ccpPath string) {
 		}
 	}
 
+	cfg, err := fabricsdkconfig.FromFile(filepath.Clean(ccpPath))()
+	if err != nil {
+		svc.log.Errorf("failed to extract peers config: %v", err)
+		return
+	}
+	peers, _ := cfg[0].Lookup("peers")
+	peerMap := peers.(map[string]any)
+
+	var peerList []string
+	for peer, _ := range peerMap {
+		peerList = append(peerList, peer)
+	}
+
+	svc.endorsingPeers.Store(userName, peerList)
+
 	gw, err := gateway.Connect(
 		gateway.WithConfig(fabricsdkconfig.FromFile(filepath.Clean(ccpPath))),
 		gateway.WithIdentity(wallet, userName),
 	)
+
 	if err != nil {
 		svc.log.Errorf("failed to connect to gateway: %v", err)
 		return
@@ -109,6 +127,17 @@ func (svc *HLFService) getContract(user string) (contract *gateway.Contract, err
 	}
 
 	contract = item.(*gateway.Contract)
+	return
+}
+
+func (svc *HLFService) getEndorsingPeers(user string) (peerList []string, err error) {
+	item, ok := svc.endorsingPeers.Load(user)
+	if !ok || item == nil {
+		err = fmt.Errorf("user =[%v] not found", user)
+		return
+	}
+
+	peerList = item.([]string)
 	return
 }
 
