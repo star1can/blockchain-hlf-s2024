@@ -27,7 +27,7 @@ type (
 		WalletPath              string `env:"WALLET_PATH" env-default:"wallet"`
 		ChannelName             string `env:"CHANNEL_NAME" env-default:"testchannel"`
 		ChaincodeName           string `env:"CHAINCODE_NAME" env-default:"saacv2"`
-		OrganizationsFolderPath string `env:"ORGANIZATION_FOLDER_PATH" env-default:"../../test-network/organizations"`
+		OrganizationsFolderPath string `env:"ORGANIZATION_FOLDER_PATH" env-default:"../../organizations"`
 	}
 )
 
